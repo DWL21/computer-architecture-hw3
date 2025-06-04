@@ -20,6 +20,7 @@ namespace RISCV {
 const int REGNUM = 32;
 extern const char *REGNAME[32];
 typedef uint32_t RegId;
+
 enum Reg {
   REG_ZERO = 0,
   REG_RA = 1,
@@ -166,6 +167,13 @@ public:
   bool isSingleStep;
   bool verbose;
   bool shouldDumpHistory;
+  double cacheSizePenalty;
+  double blockSizePenalty;
+  double associativityPenalty;
+  double l2cacheSizePenalty;
+  double l2blockSizePenalty;
+  double l2associativityPenalty;
+  double BPpenalty;
   uint64_t pc;
   uint64_t reg[RISCV::REGNUM];
   uint32_t stackBase;
@@ -185,6 +193,8 @@ public:
   void printInfo();
 
   void printStatistics();
+
+  void GetPenalty(double, double, double, double, double, double, double);
 
 private:
   struct FReg {
@@ -263,6 +273,8 @@ private:
     uint32_t dataHazardCount;
     uint32_t controlHazardCount;
     uint32_t memoryHazardCount;
+
+    double bench_score;
 
     std::vector<std::string> instRecord;
     std::vector<std::string> regRecord;

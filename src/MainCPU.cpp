@@ -7,7 +7,11 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
-
+#include <fstream>
+#include <sstream>
+#include <map>
+#include <cmath>
+#include <unordered_map>
 #include <elfio/elfio.hpp>
 
 #include "BranchPredictor.h"
@@ -16,10 +20,21 @@
 #include "MemoryManager.h"
 #include "Simulator.h"
 
+double l2cacheSizePenalty(int cacheSizeBytes);
+double l2blockSizePenalty(int blockSizeBytes);
+double l2associativityPenalty(int assoc);
+double cacheSizePenalty(int cacheSizeBytes);
+double blockSizePenalty(int blockSizeBytes);
+double associativityPenalty(int assoc);
+double BPpenalty(BranchPredictor::Strategy strategy);
+
 bool parseParameters(int argc, char **argv);
 void printUsage();
 void printElfInfo(ELFIO::elfio *reader);
 void loadElfToMemory(ELFIO::elfio *reader, MemoryManager *memory);
+std::map<std::string, std::string> readConfig(const std::string &filename, const std::string &section);
+BranchPredictor::Strategy parseBPStrategy(const std::map<std::string, std::string>& config, const std::string& bpStr);
+BranchPredictor::Strategy parseBPStrategyFromConfig(const std::map<std::string, std::string>& config);
 
 char *elfFile = nullptr;
 bool verbose = 0;
@@ -28,10 +43,14 @@ bool dumpHistory = 0;
 uint32_t stackBaseAddr = 0x80000000;
 uint32_t stackSize = 0x400000;
 MemoryManager memory;
-Cache *l1Cache, *l2Cache, *l3Cache;
+//Cache *l1Cache, *l2Cache, *l3Cache;
+Cache *l1Cache, *l2Cache;
 BranchPredictor::Strategy strategy = BranchPredictor::Strategy::NT;
 BranchPredictor branchPredictor;
 Simulator simulator(&memory, &branchPredictor);
+std::string configSection = "configA";
+bool bpOptionFromCmd = false;
+std::string bpOptionStr = "";
 
 int main(int argc, char **argv) {
   if (!parseParameters(argc, argv)) {
@@ -40,31 +59,26 @@ int main(int argc, char **argv) {
   }
 
   // Init cache
-  Cache::Policy l1Policy, l2Policy, l3Policy;
+  //Cache::Policy l1Policy, l2Policy, l3Policy;
+  Cache::Policy l1Policy, l2Policy;
 
-  l1Policy.cacheSize = 32 * 1024;
-  l1Policy.blockSize = 64;
+  std::map<std::string, std::string> config = readConfig("configuration.cfg", configSection);
+
+  l1Policy.cacheSize = config.count("l1.cacheSize") ? std::stoi(config["l1.cacheSize"]) : 256;
+  l1Policy.blockSize = config.count("l1.blockSize") ? std::stoi(config["l1.blockSize"]) : 32;
   l1Policy.blockNum = l1Policy.cacheSize / l1Policy.blockSize;
-  l1Policy.associativity = 8;
-  l1Policy.hitLatency = 0;
-  l1Policy.missLatency = 8;
+  l1Policy.associativity = config.count("l1.associativity") ? std::stoi(config["l1.associativity"]) : 2;
+  l1Policy.hitLatency = 1;
+  l1Policy.missLatency = 12;
 
-  l2Policy.cacheSize = 256 * 1024;
-  l2Policy.blockSize = 64;
+  l2Policy.cacheSize = config.count("l2.cacheSize") ? std::stoi(config["l2.cacheSize"]) : 2048;
+  l2Policy.blockSize = config.count("l2.blockSize") ? std::stoi(config["l2.blockSize"]) : 32;
   l2Policy.blockNum = l2Policy.cacheSize / l2Policy.blockSize;
-  l2Policy.associativity = 8;
-  l2Policy.hitLatency = 8;
-  l2Policy.missLatency = 20;
+  l2Policy.associativity = config.count("l2.associativity") ? std::stoi(config["l2.associativity"]) : 4;
+  l2Policy.hitLatency = 12;
+  l2Policy.missLatency = 100;
 
-  l3Policy.cacheSize = 8 * 1024 * 1024;
-  l3Policy.blockSize = 64;
-  l3Policy.blockNum = l3Policy.cacheSize / l3Policy.blockSize;
-  l3Policy.associativity = 8;
-  l3Policy.hitLatency = 20;
-  l3Policy.missLatency = 100;
-
-  l3Cache = new Cache(&memory, l3Policy);
-  l2Cache = new Cache(&memory, l2Policy, l3Cache);
+  l2Cache = new Cache(&memory, l2Policy);
   l1Cache = new Cache(&memory, l1Policy, l2Cache);
 
   memory.setCache(l1Cache);
@@ -89,19 +103,33 @@ int main(int argc, char **argv) {
   simulator.isSingleStep = isSingleStep;
   simulator.verbose = verbose;
   simulator.shouldDumpHistory = dumpHistory;
+  if (bpOptionFromCmd) {
+    strategy = parseBPStrategy(config, bpOptionStr);
+  } else {
+    strategy = parseBPStrategyFromConfig(config);
+  }
   simulator.branchPredictor->strategy = strategy;
   simulator.pc = reader.get_entry();
   simulator.initStack(stackBaseAddr, stackSize);
+  simulator.GetPenalty(
+    cacheSizePenalty(l1Policy.cacheSize), 
+    blockSizePenalty(l1Policy.blockSize), 
+    associativityPenalty(l1Policy.associativity), 
+    l2cacheSizePenalty(l2Policy.cacheSize), 
+    l2blockSizePenalty(l2Policy.blockSize), 
+    l2associativityPenalty(l2Policy.associativity),
+    BPpenalty(strategy));
   simulator.simulate();
-
+  //simulator.memory->printStatistics();
   if (dumpHistory) {
     printf("Dumping history to dump.txt...\n");
     simulator.dumpHistory();
   }
 
+
   delete l1Cache;
   delete l2Cache;
-  delete l3Cache;
+  //delete l3Cache;
   return 0;
 }
 
@@ -116,27 +144,29 @@ bool parseParameters(int argc, char **argv) {
       case 's':
         isSingleStep = 1;
         break;
-      case 'd':
+      case 'o':
         dumpHistory = 1;
         break;
-      case 'b':
+      case 'p':
         if (i + 1 < argc) {
-          std::string str = argv[i + 1];
+          bpOptionFromCmd = true;
+          bpOptionStr = argv[i + 1];
           i++;
-          if (str == "AT") {
-            strategy = BranchPredictor::Strategy::AT;
-          } else if (str == "NT") {
-            strategy = BranchPredictor::Strategy::NT;
-          } else if (str == "BTFNT") {
-            strategy = BranchPredictor::Strategy::BTFNT;
-          } else if (str == "BPB") {
-            strategy = BranchPredictor::Strategy::BPB;
-          } else {
-            return false;
-          }
         } else {
           return false;
         }
+        break;
+      case 'a':
+        configSection = "configA";
+        break;
+      case 'b':
+        configSection = "configB";
+        break;
+      case 'c':
+        configSection = "configC";
+        break;
+      case 'd':
+        configSection = "configD";
         break;
       default:
         return false;
@@ -156,11 +186,12 @@ bool parseParameters(int argc, char **argv) {
 }
 
 void printUsage() {
-  printf("Usage: Simulator riscv-elf-file [-v] [-s] [-d] [-b param]\n");
+  printf("Usage: Simulator riscv-elf-file [-v] [-s] [-o] [-p param] [-a|-b|-c|-d]\n");
   printf("Parameters: \n\t[-v] verbose output \n\t[-s] single step\n");
-  printf("\t[-d] dump memory and register trace to dump.txt\n");
-  printf("\t[-b param] branch perdiction strategy, accepted param AT, NT, "
+  printf("\t[-o] dump memory and register trace to dump.txt\n");
+  printf("\t[-p param] branch perdiction strategy, accepted param AT, NT, "
          "BTFNT, BPB\n");
+  printf("\t[-a|-b|-c|-d] select config section in configuration.cfg\n");
 }
 
 void printElfInfo(ELFIO::elfio *reader) {
@@ -242,4 +273,118 @@ void loadElfToMemory(ELFIO::elfio *reader, MemoryManager *memory) {
       }
     }
   }
+}
+
+BranchPredictor::Strategy parseBPStrategy(const std::map<std::string, std::string>& config, const std::string& bpStr) {
+    if (bpStr == "AT") return BranchPredictor::Strategy::AT;
+    if (bpStr == "NT") return BranchPredictor::Strategy::NT;
+    if (bpStr == "BTFNT") return BranchPredictor::Strategy::BTFNT;
+    if (bpStr == "BPB") return BranchPredictor::Strategy::BPB;
+    return BranchPredictor::Strategy::NT;
+}
+
+BranchPredictor::Strategy parseBPStrategyFromConfig(const std::map<std::string, std::string>& config) {
+    auto it = config.find("bp");
+    if (it != config.end()) {
+        const std::string& bpStr = it->second;
+        if (bpStr == "AT") return BranchPredictor::Strategy::AT;
+        if (bpStr == "NT") return BranchPredictor::Strategy::NT;
+        if (bpStr == "BTFNT") return BranchPredictor::Strategy::BTFNT;
+        if (bpStr == "BPB") return BranchPredictor::Strategy::BPB;
+    }
+    return BranchPredictor::Strategy::NT;
+}
+
+std::map<std::string, std::string> readConfig(const std::string &filename, const std::string &section) {
+    std::map<std::string, std::string> config;
+    std::ifstream infile(filename);
+    if (!infile.is_open()) return config;
+    std::string line;
+    bool inSection = false;
+    while (std::getline(infile, line)) {
+        if (line == section) {
+            inSection = true;
+            continue;
+        }
+        if (inSection) {
+            if (line.rfind("config", 0) == 0) break; 
+            std::istringstream iss(line);
+            std::string key;
+            if (std::getline(iss, key, '=')) {
+                std::string value_str;
+                if (std::getline(iss, value_str)) {
+                    config[key] = value_str;
+                }
+            }
+        }
+    }
+    return config;
+}
+
+double cacheSizePenalty(int cacheSizeBytes) {
+    const int baseSize = 256;
+    if (cacheSizeBytes <= baseSize) return 0;
+    double steps = log2(cacheSizeBytes / (double)baseSize);
+    return steps * 0.05;
+}
+
+double blockSizePenalty(int blockSizeBytes) {
+    if (blockSizeBytes <= 16) return 0;
+    double steps = blockSizeBytes / 16 - 1;
+    return steps * 0.03;
+}
+
+double associativityPenalty(int assoc) {
+    std::unordered_map<int, double> table = {
+        {1, 0},
+        {2, 0.02},
+        {4, 0.05},
+        {8, 0.10},
+        {16, 0.20},
+        {32, 0.25},
+        {64, 0.30},
+    };
+    if (table.find(assoc) != table.end()) return table[assoc];
+    else return 0.6; // fully-associative or higher
+}
+
+double l2cacheSizePenalty(int cacheSizeBytes) {
+    const int baseSize = 2048;
+    if (cacheSizeBytes <= baseSize) return 0;
+    double steps = log2(cacheSizeBytes / (double)baseSize);
+    return steps * 0.02;
+}
+
+double l2blockSizePenalty(int blockSizeBytes) {
+    if (blockSizeBytes <= 32) return 0;
+    double steps = blockSizeBytes / 16 - 1;
+    return steps * 0.008;
+}
+
+double l2associativityPenalty(int assoc) {
+    std::unordered_map<int, double> table = {
+        {1, 0},
+        {2, 0.01},
+        {4, 0.04},
+        {8, 0.08},
+        {16, 0.12},
+        {32, 0.20},
+        {64, 0.25},
+    };
+    if (table.find(assoc) != table.end()) return table[assoc];
+    else return 0.6; 
+}
+
+double BPpenalty(BranchPredictor::Strategy strategy) {
+    std::unordered_map<BranchPredictor::Strategy, double> table = {
+        {BranchPredictor::Strategy::AT, 0},
+        {BranchPredictor::Strategy::NT, 0},
+        {BranchPredictor::Strategy::BTFNT, 0.04},
+        {BranchPredictor::Strategy::BPB, 0.06}
+    };
+    if (table.find(strategy) != table.end()) 
+    {
+      return table[strategy];
+    }
+    else return 0.10;
 }

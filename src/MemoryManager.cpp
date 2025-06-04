@@ -200,7 +200,7 @@ void MemoryManager::printInfo() {
 }
 
 void MemoryManager::printStatistics() {
-  printf("---------- CACHE STATISTICS ----------\n");
+  printf("---------- L1 CACHE STATISTICS ----------\n");
   this->cache->printStatistics();
 }
 

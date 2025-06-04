@@ -15,19 +15,3 @@ add_executable(
     src/BranchPredictor.cpp 
     src/Cache.cpp
 )
-
-add_executable(
-    CacheSim 
-    src/MainCache.cpp 
-    src/MemoryManager.cpp 
-    src/Cache.cpp
-)
-
-add_executable(
-    CacheOptimized
-    src/MainCacheOptimization.cpp
-    src/MemoryManager.cpp
-    src/Cache.cpp
-)
-
-add_executable(ToDirenoTrace src/ToDirenoTrace.cpp)

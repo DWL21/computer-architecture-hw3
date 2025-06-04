@@ -56,6 +56,8 @@ const char *INSTNAME[]{
     "lwu",  "slliw", "srliw", "sraiw", "addw",  "subw", "sllw", "srlw", "sraw",
 };
 
+
+
 } // namespace RISCV
 
 using namespace RISCV;
@@ -1264,7 +1266,7 @@ void Simulator::printStatistics() {
   printf("Number of Cycles: %u\n", this->history.cycleCount);
   printf("Avg Cycles per Instrcution: %.4f\n",
          (float)this->history.cycleCount / this->history.instCount);
-  printf("Branch Perdiction Accuacy: %.4f (Strategy: %s)\n",
+  printf("Branch Prediction Accuracy: %.4f (Strategy: %s)\n",
          (float)this->history.predictedBranch /
              (this->history.predictedBranch + this->history.unpredictedBranch),
          this->branchPredictor->strategyName().c_str());
@@ -1273,8 +1275,12 @@ void Simulator::printStatistics() {
   printf("Number of Data Hazards: %u\n", this->history.dataHazardCount);
   printf("Number of Memory Hazards: %u\n",
          this->history.memoryHazardCount);
-  printf("-----------------------------------\n");
-  //this->memory->printStatistics();
+  this->history.bench_score =  1e7 / ((this->history.cycleCount * (1+this->cacheSizePenalty) * (1+this->blockSizePenalty) * (1+this->associativityPenalty) * (1+this->l2cacheSizePenalty) * (1+this->l2blockSizePenalty) * (1+this->l2associativityPenalty) * (1+this->BPpenalty)));
+  printf("Benchmark Score (bigger is better): %.4f\n", this->history.bench_score);
+  printf("-----------------------------------\n\n");
+
+
+  this->memory->printStatistics();
 }
 
 std::string Simulator::getRegInfoStr() {
@@ -1328,4 +1334,14 @@ void Simulator::panic(const char *format, ...) {
   this->dumpHistory();
   fprintf(stderr, "Execution history and memory dump in dump.txt\n");
   exit(-1);
+}
+
+void Simulator::GetPenalty(double cacheSizePenalty, double blockSizePenalty, double associativityPenalty, double l2cacheSizePenalty, double l2blockSizePenalty, double l2associativityPenalty, double BPpenalty) {
+  this->cacheSizePenalty = cacheSizePenalty;
+  this->blockSizePenalty = blockSizePenalty;
+  this->associativityPenalty = associativityPenalty;
+  this->l2cacheSizePenalty = l2cacheSizePenalty;
+  this->l2blockSizePenalty = l2blockSizePenalty;
+  this->l2associativityPenalty = l2associativityPenalty;
+  this->BPpenalty = BPpenalty;
 }

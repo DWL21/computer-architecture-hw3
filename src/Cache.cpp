@@ -154,14 +154,13 @@ void Cache::printInfo(bool verbose) {
 }
 
 void Cache::printStatistics() {
-  printf("-------- STATISTICS ----------\n");
-  printf("Num Read: %d\n", this->statistics.numRead);
-  printf("Num Write: %d\n", this->statistics.numWrite);
-  printf("Num Hit: %d\n", this->statistics.numHit);
-  printf("Num Miss: %d\n", this->statistics.numMiss);
-  printf("Total Cycles: %llu\n", this->statistics.totalCycles);
+  printf("Total Read Bytes: %d\n", this->statistics.numRead);
+  printf("Total Write Bytes: %d\n", this->statistics.numWrite);
+  printf("Total Hit Bytes: %d\n", this->statistics.numHit);
+  printf("Total Miss Bytes: %d\n", this->statistics.numMiss);
+  //this->printInfo(false); //for print cache info
   if (this->lowerCache != nullptr) {
-    printf("---------- LOWER CACHE ----------\n");
+    printf("---------- L2 CACHE STATISTICS ----------\n");
     this->lowerCache->printStatistics();
   }
 }
@@ -218,12 +217,18 @@ void Cache::loadBlockFromLowerLevel(uint32_t addr, uint32_t *cycles) {
   uint32_t bits = this->log2i(blockSize);
   uint32_t mask = ~((1 << bits) - 1);
   uint32_t blockAddrBegin = addr & mask;
-  for (uint32_t i = blockAddrBegin; i < blockAddrBegin + blockSize; ++i) {
+  if (this->lowerCache == nullptr) {
+      b.data[0] = this->memory->getByteNoCache(blockAddrBegin);
+      if (cycles) *cycles = 100;
+  }
+  else 
+    b.data[0] = this->lowerCache->getByte(blockAddrBegin, cycles);
+  for (uint32_t i = blockAddrBegin + 1; i < blockAddrBegin + blockSize; ++i) {
     if (this->lowerCache == nullptr) {
       b.data[i - blockAddrBegin] = this->memory->getByteNoCache(i);
       if (cycles) *cycles = 100;
-    } else 
-      b.data[i - blockAddrBegin] = this->lowerCache->getByte(i, cycles);
+    } else
+      b.data[i - blockAddrBegin] = this->lowerCache->getByte(i);
   }
 
   // Find replace block
