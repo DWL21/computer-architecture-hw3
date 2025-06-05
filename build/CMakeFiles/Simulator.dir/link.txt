@@ -1,1 +1,0 @@
-/usr/bin/c++ -O2 -Wall -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/Simulator.dir/src/MainCPU.cpp.o CMakeFiles/Simulator.dir/src/MemoryManager.cpp.o CMakeFiles/Simulator.dir/src/Simulator.cpp.o CMakeFiles/Simulator.dir/src/BranchPredictor.cpp.o CMakeFiles/Simulator.dir/src/Cache.cpp.o -o Simulator
