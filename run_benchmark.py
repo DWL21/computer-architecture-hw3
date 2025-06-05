@@ -68,33 +68,41 @@ with open('configuration.cfg', 'r') as f:
 
 summary = []
 
+processed = set()
+for fname in os.listdir(result_dir):
+    if fname.endswith('.txt'):
+        processed.add(fname[:-4])
+
 def param_str(l1s, l1b, l1a, l2s, l2b, l2a, bp):
     return f'{bench_name}_l1_{l1s}_l1b_{l1b}_l1a_{l1a}_l2_{l2s}_l2b_{l2b}_l2a_{l2a}_bp_{bp}'
 
 for idx, (l1s, l1b, l1a, l2s, l2b, l2a, bp) in enumerate(all_configs, 1):
+    paramname = param_str(l1s, l1b, l1a, l2s, l2b, l2a, bp)
+    cfg_out = os.path.join(result_dir, f'{paramname}.cfg')
+    out = os.path.join(result_dir, f'{paramname}.txt')
+    if paramname in processed:
+        print(f'Skipping already processed: {paramname}')
+        with open(out) as rf:
+            txt = rf.read()
+        def extract(pattern, default=None, cast=float):
+            m = re.search(pattern, txt)
+            if m:
+                return cast(m.group(1).replace(',', ''))
+            return default
+        score = extract(r'Benchmark Score \(bigger is better\): ([0-9.]+)')
+        cycles = extract(r'Number of Cycles: ([0-9,]+)', cast=int)
+        cpi = extract(r'Avg Cycles per Instrcution: ([0-9.]+)')
+        instr = extract(r'Number of Instructions: ([0-9,]+)', cast=int)
+        summary.append((score, l1s, l1b, l1a, l2s, l2b, l2a, bp, cycles, cpi, instr, paramname))
+        continue
     new = re.sub(r'(' + config_name + r'\n)(.*?)(?=config|$)',
         f'{config_name}\nl1.cacheSize={l1s}\nl1.blockSize={l1b}\nl1.associativity={l1a}\nl2.cacheSize={l2s}\nl2.blockSize={l2b}\nl2.associativity={l2a}\nbp={bp}\n',
         orig, flags=re.DOTALL)
     with open('configuration.cfg', 'w') as f2:
         f2.write(new)
-    paramname = param_str(l1s, l1b, l1a, l2s, l2b, l2a, bp)
-    cfg_out = os.path.join(result_dir, f'{paramname}.cfg')
-    out = os.path.join(result_dir, f'{paramname}.txt')
     shutil.copy('configuration.cfg', cfg_out)
     print(f'[{idx}/{len(all_configs)}] Running: L1={l1s}/{l1b}/{l1a}, L2={l2s}/{l2b}/{l2a}, BP={bp}')
     subprocess.run(['./Simulator', bench_file, bench_flag], stdout=open(out, 'w'), stderr=subprocess.STDOUT)
-    with open(out) as rf:
-        txt = rf.read()
-    def extract(pattern, default=None, cast=float):
-        m = re.search(pattern, txt)
-        if m:
-            return cast(m.group(1).replace(',', ''))
-        return default
-    score = extract(r'Benchmark Score \(bigger is better\): ([0-9.]+)')
-    cycles = extract(r'Number of Cycles: ([0-9,]+)', cast=int)
-    cpi = extract(r'Avg Cycles per Instrcution: ([0-9.]+)')
-    instr = extract(r'Number of Instructions: ([0-9,]+)', cast=int)
-    summary.append((score, l1s, l1b, l1a, l2s, l2b, l2a, bp, cycles, cpi, instr, paramname))
     time.sleep(0.1)
 
 summary.sort(reverse=True, key=lambda x: (x[0] if x[0] is not None else -1))
