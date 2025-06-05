@@ -6,5 +6,5 @@ pkill -f .py
 
 # nohup으로 run_all_benchmarks.py 실행
 echo "Starting run_all_benchmarks.py with nohup..."
-nohup python3 run_all_benchmarks.py > nohup.output 2>&1 &
+nohup python3 -u run_all_benchmarks.py > nohup.output 2>&1 &
 echo "Started. Output is being written to nohup.output." 
