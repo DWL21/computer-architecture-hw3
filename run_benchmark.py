@@ -101,7 +101,7 @@ for idx, (l1s, l1b, l1a, l2s, l2b, l2a, bp) in enumerate(all_configs, 1):
     with open('configuration.cfg', 'w') as f2:
         f2.write(new)
     shutil.copy('configuration.cfg', cfg_out)
-    print(f'[{idx}/{len(all_configs)}] Running: L1={l1s}/{l1b}/{l1a}, L2={l2s}/{l2b}/{l2a}, BP={bp}')
+    print(f'[{idx}/{len(all_configs)}] {bench_name} Running: L1={l1s}/{l1b}/{l1a}, L2={l2s}/{l2b}/{l2a}, BP={bp}')
     subprocess.run(['./Simulator', bench_file, bench_flag], stdout=open(out, 'w'), stderr=subprocess.STDOUT)
     time.sleep(0.1)
 
