@@ -99,7 +99,7 @@ for idx, (l1s, l1b, l1a, l2s, l2b, l2a, bp) in enumerate(all_configs, 1):
 
 summary.sort(reverse=True, key=lambda x: (x[0] if x[0] is not None else -1))
 
-mdfile = os.path.join(result_dir, 'summary.md')
+mdfile = os.path.join('result', f'summary_{bench_name}.md')
 with open(mdfile, 'w') as f:
     f.write(f'# {bench_name} 벤치마크 최적화 결과 요약\n\n')
     f.write('| 순위 | 파라미터 | L1 Size | L1 Block | L1 Assoc | L2 Size | L2 Block | L2 Assoc | BP | 점수 | 사이클 | CPI | 명령어 수 |\n')
