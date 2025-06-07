@@ -1,6 +1,6 @@
 import subprocess
 
-benchmarks = ['-a', '-b', '-d']
+benchmarks = ['-a', '-b', '-c', '-d']
 
 procs = []
 for bench in benchmarks:
