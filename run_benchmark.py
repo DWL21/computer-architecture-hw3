@@ -60,8 +60,8 @@ for l1s, l1b, l1a, l2s, l2b, l2a, bp in itertools.product(L1_SIZES, L1_BLOCKS, L
     all_configs.append((l1s, l1b, l1a, l2s, l2b, l2a, bp))
 
 print(f'Total valid configs: {len(all_configs)}')
+random.shuffle(all_configs)
 if args.max:
-    random.shuffle(all_configs)
     all_configs = all_configs[:args.max]
     print(f'Running only first {args.max} configs for test.')
 
