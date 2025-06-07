@@ -1,3 +1,4 @@
+import random
 import re
 import shutil
 import subprocess
@@ -6,13 +7,13 @@ import argparse
 import itertools
 import os
 
-L1_SIZES = reversed([256, 512, 1024, 2048, 4096, 8192])
-L1_BLOCKS = reversed([4, 8, 16, 32, 64])
-L1_ASSOCS = reversed([1, 2, 4, 8])
-L2_SIZES = reversed([1024, 2048, 4096, 8192, 16384])
-L2_BLOCKS = reversed([8, 16, 32, 64, 128])
-L2_ASSOCS = reversed([1, 2, 4, 8])
-BPS = reversed(['NT', 'AT', 'BTFNT', 'BPB'])
+L1_SIZES = [256, 512, 1024, 2048, 4096, 8192]
+L1_BLOCKS = [4, 8, 16, 32, 64]
+L1_ASSOCS = [1, 2, 4, 8]
+L2_SIZES = [1024, 2048, 4096, 8192, 16384]
+L2_BLOCKS = [8, 16, 32, 64, 128]
+L2_ASSOCS = [1, 2, 4, 8]
+BPS = ['NT', 'AT', 'BTFNT', 'BPB']
 
 CONFIG_MAP = {
     'a': 'configA',
@@ -60,6 +61,7 @@ for l1s, l1b, l1a, l2s, l2b, l2a, bp in itertools.product(L1_SIZES, L1_BLOCKS, L
 
 print(f'Total valid configs: {len(all_configs)}')
 if args.max:
+    random.shuffle(all_configs)
     all_configs = all_configs[:args.max]
     print(f'Running only first {args.max} configs for test.')
 
