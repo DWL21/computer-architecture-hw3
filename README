@@ -1,0 +1,59 @@
+# RISCV-Simulator
+
+## How to run
+```
+chmod +x run.sh
+./run.sh
+```
+
+## How to configure
+You can change "configuration.cfg" for various simulation
+
+
+Branch Predictor Option : "AT", "NT", "BTFNT", "BPB" (Always Taken, Always Not Taken, Backward Taken Forward Not Taken, Branch Precition Buffer (2bit), respectively)
+
+
+```
+configA
+l1.cacheSize=256
+l1.blockSize=16
+l1.associativity=1
+l2.cacheSize=1024
+l2.blockSize=32
+l2.associativity=2
+bp=AT
+configB
+l1.cacheSize=256
+l1.blockSize=16
+l1.associativity=1
+l2.cacheSize=1024
+l2.blockSize=32
+l2.associativity=2
+bp=AT
+configC
+l1.cacheSize=256
+l1.blockSize=16
+l1.associativity=1
+l2.cacheSize=1024
+l2.blockSize=32
+l2.associativity=2
+bp=AT
+configD
+l1.cacheSize=256
+l1.blockSize=16
+l1.associativity=1
+l2.cacheSize=1024
+l2.blockSize=32
+l2.associativity=2
+bp=AT
+```
+
+## How to build
+If you have changed Simulator source code, you can build it
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+then "Simulator" binary file will be compiled in "build" directory.
